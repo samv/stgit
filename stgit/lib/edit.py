@@ -3,6 +3,31 @@
 from stgit import utils
 from stgit.commands import common
 from stgit.lib import git
+from stgit import run
+from tempfile import NamedTemporaryFile
+import os
+
+def run_commit_msg_hook(repo, message):
+    """Run the commit-msg git hook manually when editing a patch.
+
+    Return the edited commit message, or the original message if there
+    is no commit-msg hook."""
+
+    hook_path = os.path.join(repo.directory, 'hooks', 'commit-msg')
+
+    if not os.access(hook_path, os.X_OK):
+        return message
+
+    # message hook exists, make a temporary file and run on the temp file
+    tf = NamedTemporaryFile("w", delete=False)
+    tf.write(message)
+    tf.close()
+
+    run.Run('bash', hook_path, tf.name).run()
+    new_msg = open(tf.name, 'r').read()
+    os.remove(tf.name)
+
+    return new_msg
 
 def update_patch_description(repo, cd, text, contains_diff):
     """Update the given L{CommitData<stgit.lib.git.CommitData>} with the
@@ -19,7 +44,7 @@ def update_patch_description(repo, cd, text, contains_diff):
                         (git.Date.maybe(authdate), 'set_date')]:
         if val != None:
             a = getattr(a, setter)(val)
-    cd = cd.set_message(message).set_author(a)
+    cd = cd.set_message(run_commit_msg_hook(repo, message)).set_author(a)
     failed_diff = None
     if diff:
         tree = repo.apply(cd.parent.data.tree, diff, quiet = False)

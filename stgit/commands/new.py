@@ -20,6 +20,7 @@ from stgit import argparse, utils
 from stgit.commands import common
 from stgit.lib import git as gitlib, transaction
 from stgit.config import config
+from stgit.lib import edit
 
 help = 'Create a new, empty patch'
 kind = 'patch'
@@ -68,6 +69,9 @@ def func(parser, options, args):
         tree = stack.head.data.tree, parents = [stack.head], message = '',
         author = gitlib.Person.author(), committer = gitlib.Person.committer())
     cd = common.update_commit_data(cd, options)
+
+    # run the commit-msg hook
+    cd = cd.set_message(edit.run_commit_msg_hook(stack.repository, cd.message))
 
     if options.save_template:
         options.save_template(cd.message)
